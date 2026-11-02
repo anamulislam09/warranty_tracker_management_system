@@ -11,7 +11,10 @@ class Document extends Model
 
     protected $fillable = ['account_id', 'product_id', 'type', 'original_name', 'path', 'mime_type', 'size'];
 
-    public function product() { return $this->belongsTo(Product::class); }
+    public function product()
+    {
+        return $this->belongsTo(Product::class);
+    }
 
     public function getSizeHumanAttribute(): string
     {

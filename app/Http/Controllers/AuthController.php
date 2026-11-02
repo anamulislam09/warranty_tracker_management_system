@@ -56,7 +56,8 @@ class AuthController extends Controller
             'mobile'       => 'nullable|string|max:30',
             'country_code' => 'required|in:' . implode(',', array_keys(config('warranty.countries'))),
             'language'     => 'required|in:en,bn',
-            'account_type' => 'required|in:personal,family,business',
+            'account_type' => 'required',
+            'billing_cycle' => ['required', \Illuminate\Validation\Rule::in(array_keys(config('billing.cycles')))],
             'password'     => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
         ]);
 
@@ -67,6 +68,7 @@ class AuthController extends Controller
                 'phone'        => $data['mobile'] ?? null,
                 'country_code' => $data['country_code'],
                 'account_type' => $data['account_type'],
+                'billing_cycle' => $data['billing_cycle'],
                 'status'       => 'pending',                                   // waits for super admin approval
                 'plan_id'      => Plan::where('is_active', true)->orderBy('monthly_price')->value('id'),
             ]);

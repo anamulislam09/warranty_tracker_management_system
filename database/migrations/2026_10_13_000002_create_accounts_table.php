@@ -14,7 +14,7 @@ return new class extends Migration {
             $t->string('email')->unique();
             $t->string('phone')->nullable();
             $t->string('country_code', 2)->default('BD');
-            $t->string('account_type')->default('personal');   // personal | family | business
+            $t->string('account_type')->default('personal');   // personal | Small Business | Enterprise
             $t->string('status')->default('pending');          // pending | active | inactive
             $t->foreignId('plan_id')->nullable()->constrained('plans')->nullOnDelete();
             $t->string('billing_cycle')->default('monthly');

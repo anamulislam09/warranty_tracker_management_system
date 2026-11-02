@@ -23,7 +23,7 @@ class AccountController extends Controller
             'country_code' => ['required', Rule::in(array_keys(config('warranty.countries')))],
             'account_type' => 'required|in:personal,family,business',
             'plan_id' => 'nullable|exists:plans,id',
-            'billing_cycle' => 'required|in:monthly,annual',
+            'billing_cycle' => ['required', Rule::in(array_keys(config('billing.cycles')))],
             'status' => 'required|in:pending,active,inactive',
             'plan_ends_at' => 'nullable|date',
             'notes' => 'nullable|string|max:1000',

@@ -13,5 +13,8 @@ class Permission extends Model
         return ['is_active' => 'boolean', 'is_system' => 'boolean'];
     }
 
-    public function roles() { return $this->belongsToMany(Role::class); }
+    public function roles()
+    {
+        return $this->belongsToMany(Role::class);
+    }
 }

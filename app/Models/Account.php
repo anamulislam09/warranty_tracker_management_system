@@ -35,6 +35,26 @@ class Account extends Model
     public function owner() { return $this->hasOne(User::class)->where('role', 'owner'); }
     public function invoices() { return $this->hasMany(Invoice::class); }
 
+    /** At least one bill is unpaid after its due date -> the customer can only use the Billing page. */
+    public function isPaymentOverdue(): bool
+    {
+        return $this->invoices()->overdue()->exists();
+    }
+
+    /** Money received but not used for any bill yet (paid in advance). */
+    public function advanceBalance(): float
+    {
+        $received = (float) Payment::where('account_id', $this->id)->sum('amount');
+        $used     = (float) PaymentAllocation::where('account_id', $this->id)->sum('amount');
+
+        return max(0, round($received - $used, 2));
+    }
+
+    public function cycleLabel(): string
+    {
+        return config("billing.cycles.{$this->billing_cycle}.label", ucfirst((string) $this->billing_cycle));
+    }
+
     /** Text shown to the customer when he tries to login while the account is not active. */
     public function inactiveMessage(): string
     {
@@ -44,9 +64,9 @@ class Account extends Model
 
         if ($this->suspended_reason === 'overdue_bill') {
             $invoice = $this->invoices()->overdue()->orderBy('due_date')->first();
-            $month   = $invoice ? $invoice->month_label : 'a previous month';
+            $period  = $invoice ? $invoice->period_label : 'an earlier period';
 
-            return "Your account is suspended because the bill for {$month} was not paid by the due date. "
+            return "Your account is suspended because the bill for {$period} has been unpaid for more than a month after its due date. "
                  . 'Please pay your outstanding bill and contact support to reactivate your account.';
         }
 

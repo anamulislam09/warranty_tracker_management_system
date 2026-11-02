@@ -16,7 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'role'           => \App\Http\Middleware\CheckRole::class,
             'permission'     => \App\Http\Middleware\CheckPermission::class,
             'account.active' => \App\Http\Middleware\EnsureAccountActive::class,
+            'billing.clear'  => \App\Http\Middleware\EnsureBillingClear::class,
         ]);
+
+        // online payment gateways send the customer / their server back with a POST
+        $middleware->validateCsrfTokens(except: ['billing/gateway/*']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

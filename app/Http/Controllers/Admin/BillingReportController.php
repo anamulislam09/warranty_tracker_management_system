@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\Invoice;
+use App\Models\Payment;
+use App\Models\PaymentAllocation;
 use App\Services\BillingService;
 use Illuminate\Http\Request;
 
@@ -25,12 +27,17 @@ class BillingReportController extends Controller
 
         $sum = $range()->selectRaw('COALESCE(SUM(amount),0) as billed, COALESCE(SUM(paid_amount),0) as collected')->first();
 
-        $monthly = $range()->selectRaw("billing_month, COUNT(*) as invoices, SUM(amount) as billed, SUM(paid_amount) as collected,
+        $monthly = $range()->selectRaw("billing_month, MAX(period_end) as period_end, MAX(months) as months, COUNT(*) as invoices,
+                SUM(amount) as billed, SUM(paid_amount) as collected,
                 SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) as paid_count")
             ->groupBy('billing_month')->orderByDesc('billing_month')->get();
 
         $overdueAmount = $scope(Invoice::overdue()->whereBetween('billing_month', [$from->toDateString(), $to->toDateString()]))
             ->selectRaw('COALESCE(SUM(amount - paid_amount),0) as due')->value('due');
+
+        // money received but not used for a bill yet
+        $advance = max(0, round(
+            (float) $scope(Payment::query())->sum('amount') - (float) $scope(PaymentAllocation::query())->sum('amount'), 2));
 
         // ---- dues: every unpaid bill up to the "to" month, grouped by customer
         $open = $scope(Invoice::with('account')->open()->whereDate('billing_month', '<=', $to->toDateString()))
@@ -46,7 +53,7 @@ class BillingReportController extends Controller
             ];
         })->sortByDesc('balance')->values();
 
-        return compact('from', 'to', 'accountId', 'sum', 'monthly', 'overdueAmount', 'dues');
+        return compact('from', 'to', 'accountId', 'sum', 'monthly', 'overdueAmount', 'advance', 'dues');
     }
 
     public function index(Request $request)
@@ -62,25 +69,25 @@ class BillingReportController extends Controller
         $d    = $this->data($request);
         $type = $request->type === 'monthly' ? 'monthly' : 'dues';
         $name = "billing-{$type}-" . today()->format('Ymd') . '.csv';
-        $fmt  = config('warranty.date_format');
+        $fmt  = BillingService::dateFormat();
 
         return response()->streamDownload(function () use ($d, $type, $fmt) {
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF");                                   // so Excel shows UTF-8 correctly
 
             if ($type === 'monthly') {
-                fputcsv($out, ['Month', 'Bills', 'Paid bills', 'Billed', 'Collected', 'Due']);
+                fputcsv($out, ['Period starts', 'Bills', 'Paid bills', 'Billed', 'Collected', 'Due']);
                 foreach ($d['monthly'] as $m) {
                     fputcsv($out, [$m->billing_month->format('F Y'), $m->invoices, $m->paid_count,
                         number_format($m->billed, 2, '.', ''), number_format($m->collected, 2, '.', ''),
                         number_format($m->billed - $m->collected, 2, '.', '')]);
                 }
             } else {
-                fputcsv($out, ['Customer', 'Email', 'Account status', 'Months due', 'Total due', 'Oldest due date']);
+                fputcsv($out, ['Customer', 'Email', 'Account status', 'Periods due', 'Total due', 'Oldest due date']);
                 foreach ($d['dues'] as $row) {
                     fputcsv($out, [
                         $row->account->name, $row->account->email, $row->account->status,
-                        $row->invoices->map(fn ($i) => $i->billing_month->format('M Y') . ' (' . number_format($i->balance, 2, '.', '') . ')')->join('; '),
+                        $row->invoices->map(fn ($i) => $i->period_label . ' (' . number_format($i->balance, 2, '.', '') . ')')->join('; '),
                         number_format($row->balance, 2, '.', ''), $row->oldest->format($fmt),
                     ]);
                 }

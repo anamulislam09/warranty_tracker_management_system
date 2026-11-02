@@ -13,5 +13,8 @@ class UserNotification extends Model
         return ['read_at' => 'datetime'];
     }
 
-    public function product() { return $this->belongsTo(Product::class)->withoutGlobalScopes(); }
+    public function product()
+    {
+        return $this->belongsTo(Product::class)->withoutGlobalScopes();
+    }
 }

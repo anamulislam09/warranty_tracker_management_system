@@ -13,8 +13,14 @@ class Category extends Model
         return ['is_active' => 'boolean'];
     }
 
-    public function subcategories() { return $this->hasMany(Subcategory::class)->orderBy('sort_order')->orderBy('name'); }
-    public function products() { return $this->hasMany(Product::class); }
+    public function subcategories()
+    {
+        return $this->hasMany(Subcategory::class)->orderBy('sort_order')->orderBy('name');
+    }
+    public function products()
+    {
+        return $this->hasMany(Product::class);
+    }
 
     public function getImageUrlAttribute(): ?string
     {

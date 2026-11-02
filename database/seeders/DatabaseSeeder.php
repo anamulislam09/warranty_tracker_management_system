@@ -64,9 +64,12 @@ class DatabaseSeeder extends Seeder
         }
 
         // ---- super admin (change this password after first login!) ----
-        User::updateOrCreate(['email' => 'admin@example.com'], [
-            'name' => 'Super Admin', 'password' => 'Admin@12345', 'role' => 'super_admin',
-            'status' => 'active', 'email_verified_at' => now(),
+        User::updateOrCreate(['email' => 'admin@gmail.com'], [
+            'name' => 'Super Admin',
+            'password' => 'Admin12345',
+            'role' => 'super_admin',
+            'status' => 'active',
+            'email_verified_at' => now(),
         ]);
     }
 }

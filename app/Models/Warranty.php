@@ -10,8 +10,18 @@ class Warranty extends Model
     use BelongsToAccount;
 
     protected $fillable = [
-        'account_id', 'product_id', 'component', 'warranty_type', 'start_date', 'duration', 'duration_unit',
-        'end_date', 'end_date_source', 'provider', 'terms', 'reminder_days',
+        'account_id',
+        'product_id',
+        'component',
+        'warranty_type',
+        'start_date',
+        'duration',
+        'duration_unit',
+        'end_date',
+        'end_date_source',
+        'provider',
+        'terms',
+        'reminder_days',
     ];
 
     public const VALIDITY = 'Validity';   // component name used for a document's validity period
@@ -23,9 +33,15 @@ class Warranty extends Model
         return ['start_date' => 'date', 'end_date' => 'date', 'reminder_days' => 'array'];
     }
 
-    public function product() { return $this->belongsTo(Product::class); }
+    public function product()
+    {
+        return $this->belongsTo(Product::class);
+    }
 
-    public function isValidity(): bool { return $this->component === self::VALIDITY; }
+    public function isValidity(): bool
+    {
+        return $this->component === self::VALIDITY;
+    }
 
     /** Valid now and not about to expire. Documents ignore the start date (a renewed document is already valid). */
     public function scopeCurrentlyValid($q)
@@ -34,9 +50,12 @@ class Warranty extends Model
         $soon  = today()->addDays(config('warranty.expiring_days'))->toDateString();
 
         return $q->where('end_date', '>', $soon)
-                 ->where(fn ($q) => $q->where('start_date', '<=', $today)->orWhere('component', self::VALIDITY));
+            ->where(fn($q) => $q->where('start_date', '<=', $today)->orWhere('component', self::VALIDITY));
     }
-    public function account() { return $this->belongsTo(Account::class); }
+    public function account()
+    {
+        return $this->belongsTo(Account::class);
+    }
 
     public function getDaysRemainingAttribute(): int
     {

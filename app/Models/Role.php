@@ -13,6 +13,12 @@ class Role extends Model
         return ['is_active' => 'boolean'];
     }
 
-    public function permissions() { return $this->belongsToMany(Permission::class); }
-    public function users() { return $this->hasMany(User::class, 'role_id'); }
+    public function permissions()
+    {
+        return $this->belongsToMany(Permission::class);
+    }
+    public function users()
+    {
+        return $this->hasMany(User::class, 'role_id');
+    }
 }

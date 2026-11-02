@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     Route::post('auth/login', [Api\AuthController::class, 'login']);
 
-    Route::middleware(['auth:sanctum', 'account.active', 'role:owner,member'])->group(function () {
+    Route::middleware(['auth:sanctum', 'account.active', 'billing.clear', 'role:owner,member'])->group(function () {
         Route::post('auth/logout', [Api\AuthController::class, 'logout']);
 
         Route::get('products', [Api\ProductController::class, 'index'])->middleware('permission:products.view');

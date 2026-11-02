@@ -3,6 +3,8 @@
 use App\Http\Controllers\AccountUserController;
 use App\Http\Controllers\Admin;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BillingController;
+use App\Http\Controllers\GatewayCallbackController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\NotificationController;
@@ -21,7 +23,10 @@ Route::middleware('guest')->group(function () {
 
 Route::post('logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
-Route::middleware(['auth', 'account.active'])->group(function () {
+// the online payment gateway sends the customer back here (no login needed, the gateway class verifies it)
+Route::match(['get', 'post'], 'billing/gateway/{gateway}/callback', [GatewayCallbackController::class, 'handle'])->name('billing.gateway.callback');
+
+Route::middleware(['auth', 'account.active', 'billing.clear'])->group(function () {
 
     Route::get('dashboard', DashboardController::class)->name('dashboard');
 
@@ -53,6 +58,10 @@ Route::middleware(['auth', 'account.active'])->group(function () {
     // ---------- Customer owner only ----------
     Route::middleware('role:owner')->group(function () {
         Route::resource('users', AccountUserController::class)->except('show');
+
+        // billing: bills, payment history, advance, pay online
+        Route::get('billing', [BillingController::class, 'index'])->name('billing.index');
+        Route::post('billing/pay', [BillingController::class, 'pay'])->name('billing.pay');
     });
 
     // ---------- Super admin ----------

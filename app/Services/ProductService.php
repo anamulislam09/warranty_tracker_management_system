@@ -21,8 +21,20 @@ class ProductService
 
         if ($type === 'document') {
             // documents: no category, no purchase info, exactly one validity period
-            foreach (['category_id', 'subcategory_id', 'brand', 'model', 'purchase_date', 'purchase_price',
-                      'seller_name', 'seller_phone', 'invoice_number', 'purchase_location'] as $k) {
+            foreach (
+                [
+                    'category_id',
+                    'subcategory_id',
+                    'brand',
+                    'model',
+                    'purchase_date',
+                    'purchase_price',
+                    'seller_name',
+                    'seller_phone',
+                    'invoice_number',
+                    'purchase_location'
+                ] as $k
+            ) {
                 $data[$k] = null;
             }
             $data['warranty_mode'] = 'single';
@@ -107,9 +119,13 @@ class ProductService
             $new->save();
 
             $row = [
-                'component' => 'Validity', 'warranty_type' => 'other',
-                'start_date' => $data['start_date'], 'duration' => $data['duration'], 'duration_unit' => $data['duration_unit'],
-                'override_end' => $data['override_end'] ?? false, 'end_date' => $data['end_date'] ?? null,
+                'component' => 'Validity',
+                'warranty_type' => 'other',
+                'start_date' => $data['start_date'],
+                'duration' => $data['duration'],
+                'duration_unit' => $data['duration_unit'],
+                'override_end' => $data['override_end'] ?? false,
+                'end_date' => $data['end_date'] ?? null,
                 'reminder_days' => $data['reminder_days'] ?? config('warranty.default_reminders'),
             ];
             $new->warranties()->create($this->payload($row, $new));
