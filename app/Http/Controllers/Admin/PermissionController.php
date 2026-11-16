@@ -16,12 +16,15 @@ class PermissionController extends Controller
         ]);
     }
 
-    public function create() { return view('admin.permissions.form', ['permission' => new Permission(['is_active' => true, 'group' => 'General'])]); }
+    public function create()
+    {
+        return view('admin.permissions.form', ['permission' => new Permission(['is_active' => true, 'group' => 'General'])]);
+    }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'slug'  => ['required', 'max:100', 'regex:/^[a-z_]+(\.[a-z_]+)+$/', 'unique:permissions,slug'],
+            'slug'  => ['required', 'unique:permissions,slug'],
             'label' => 'required|string|max:150',
             'group' => 'required|string|max:50',
         ]);
@@ -30,12 +33,15 @@ class PermissionController extends Controller
         return redirect()->route('admin.permissions.index')->with('success', 'Permission created.');
     }
 
-    public function edit(Permission $permission) { return view('admin.permissions.form', compact('permission')); }
+    public function edit(Permission $permission)
+    {
+        return view('admin.permissions.form', compact('permission'));
+    }
 
     public function update(Request $request, Permission $permission)
     {
         $data = $request->validate([
-            'slug'  => ['required', 'max:100', 'regex:/^[a-z_]+(\.[a-z_]+)+$/', Rule::unique('permissions', 'slug')->ignore($permission)],
+            'slug'  => ['required', Rule::unique('permissions', 'slug')->ignore($permission)],
             'label' => 'required|string|max:150',
             'group' => 'required|string|max:50',
         ]);

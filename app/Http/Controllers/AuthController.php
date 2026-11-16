@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Account;
+use App\Models\PaymentSchedule;
 use App\Models\Plan;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -46,7 +47,7 @@ class AuthController extends Controller
         return redirect()->intended(route('dashboard'))->with('success', 'Welcome back, ' . $user->name . '!');
     }
 
-    public function showRegister() { return view('auth.register'); }
+    public function showRegister() { return view('auth.register', ['schedules' => PaymentSchedule::active()->get()]); }
 
     public function register(Request $request)
     {
@@ -56,8 +57,8 @@ class AuthController extends Controller
             'mobile'       => 'nullable|string|max:30',
             'country_code' => 'required|in:' . implode(',', array_keys(config('warranty.countries'))),
             'language'     => 'required|in:en,bn',
-            'account_type' => 'required',
-            'billing_cycle' => ['required', \Illuminate\Validation\Rule::in(array_keys(config('billing.cycles')))],
+            'account_type' => 'required|in:personal,family,business',
+            'payment_schedule_id' => ['required', \Illuminate\Validation\Rule::exists('payment_schedules', 'id')->where('is_active', true)],
             'password'     => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
         ]);
 
@@ -68,7 +69,7 @@ class AuthController extends Controller
                 'phone'        => $data['mobile'] ?? null,
                 'country_code' => $data['country_code'],
                 'account_type' => $data['account_type'],
-                'billing_cycle' => $data['billing_cycle'],
+                'payment_schedule_id' => $data['payment_schedule_id'],
                 'status'       => 'pending',                                   // waits for super admin approval
                 'plan_id'      => Plan::where('is_active', true)->orderBy('monthly_price')->value('id'),
             ]);

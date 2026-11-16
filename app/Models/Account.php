@@ -8,29 +8,44 @@ class Account extends Model
 {
     protected $fillable = [
         'name', 'email', 'phone', 'country_code', 'account_type', 'status', 'suspended_reason', 'plan_id',
-        'billing_cycle', 'plan_ends_at', 'billing_starts_on', 'approved_at', 'notes',
+        'billing_cycle', 'payment_schedule_id', 'plan_ends_at', 'billing_starts_on', 'bill_current_month', 'approved_at', 'notes',
     ];
 
     protected function casts(): array
     {
-        return ['plan_ends_at' => 'date', 'billing_starts_on' => 'date', 'approved_at' => 'datetime'];
+        return ['plan_ends_at' => 'date', 'billing_starts_on' => 'date', 'bill_current_month' => 'boolean', 'approved_at' => 'datetime'];
     }
 
     protected static function booted(): void
     {
         static::saving(function (Account $account) {
-            // billing starts from the 1st of the month AFTER the customer becomes active
+            // The admin chose (bill_current_month):
+            //   yes -> billing starts on the 1st of THIS month (this month is billed too)
+            //   no  -> this month is free, billing starts on the 1st of NEXT month
             if ($account->status === 'active' && ! $account->billing_starts_on) {
-                $account->billing_starts_on = today()->addMonthNoOverflow()->startOfMonth();
+                $account->billing_starts_on = $account->bill_current_month
+                    ? today()->startOfMonth()
+                    : today()->addMonthNoOverflow()->startOfMonth();
             }
             // a manual status change (by the super admin) clears the "overdue bill" reason
             if ($account->isDirty('status') && ! $account->isDirty('suspended_reason')) {
                 $account->suspended_reason = null;
             }
         });
+
+        // remember every status change (used by the admin dashboard charts)
+        static::updated(function (Account $account) {
+            if ($account->wasChanged('status')) {
+                AccountStatusLog::create([
+                    'account_id' => $account->id, 'from_status' => $account->getOriginal('status'),
+                    'to_status' => $account->status, 'reason' => $account->suspended_reason,
+                ]);
+            }
+        });
     }
 
     public function plan() { return $this->belongsTo(Plan::class); }
+    public function schedule() { return $this->belongsTo(PaymentSchedule::class, 'payment_schedule_id'); }
     public function users() { return $this->hasMany(User::class); }
     public function owner() { return $this->hasOne(User::class)->where('role', 'owner'); }
     public function invoices() { return $this->hasMany(Invoice::class); }
@@ -41,18 +56,11 @@ class Account extends Model
         return $this->invoices()->overdue()->exists();
     }
 
-    /** Money received but not used for any bill yet (paid in advance). */
-    public function advanceBalance(): float
-    {
-        $received = (float) Payment::where('account_id', $this->id)->sum('amount');
-        $used     = (float) PaymentAllocation::where('account_id', $this->id)->sum('amount');
 
-        return max(0, round($received - $used, 2));
-    }
-
+    /** Name of the payment schedule, e.g. "Yearly" */
     public function cycleLabel(): string
     {
-        return config("billing.cycles.{$this->billing_cycle}.label", ucfirst((string) $this->billing_cycle));
+        return optional($this->schedule)->name ?: '-';
     }
 
     /** Text shown to the customer when he tries to login while the account is not active. */

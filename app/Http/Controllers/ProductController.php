@@ -6,6 +6,7 @@ use App\Http\Requests\ProductRequest;
 use App\Models\Category;
 use App\Models\Product;
 use App\Services\ProductService;
+use App\Support\PlanUsage;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
@@ -30,6 +31,8 @@ class ProductController extends Controller
             ->when($request->type, fn ($q, $t) => $q->where('item_type', $t))
             ->when($request->category_id, fn ($q, $id) => $q->where('category_id', $id))
             ->status($request->status)
+            ->when($request->from, fn ($q, $d) => $q->whereDate('created_at', '>=', $d))      // added from (dashboard link)
+            ->when($request->to, fn ($q, $d) => $q->whereDate('created_at', '<=', $d))        // added until
             ->latest()
             ->paginate($perPage)->withQueryString();
 
@@ -38,6 +41,7 @@ class ProductController extends Controller
         return view('products.index', [
             'products'   => $products,
             'categories' => Category::where('is_active', true)->orderBy('name')->get(),
+            'usage'      => PlanUsage::forAccount(auth()->user()->account),     // plan usage bars
         ]);
     }
 

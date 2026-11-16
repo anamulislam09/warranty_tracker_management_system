@@ -11,20 +11,8 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory;
 
     protected $fillable = [
-        'account_id',
-        'name',
-        'email',
-        'password',
-        'mobile',
-        'country_code',
-        'language',
-        'timezone',
-        'role',
-        'role_id',
-        'permissions',
-        'status',
-        'email_verified_at',
-        'last_login_at',
+        'account_id', 'name', 'email', 'password', 'mobile', 'country_code', 'language',
+        'timezone', 'role', 'role_id', 'permissions', 'denied_permissions', 'status', 'email_verified_at', 'last_login_at',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -37,33 +25,23 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'last_login_at'     => 'datetime',
             'password'          => 'hashed',
-            'permissions'       => 'array',
+            'permissions'       => 'array',          // extra permissions (outside the role)
+            'denied_permissions' => 'array',         // permissions turned off for this user
         ];
     }
 
-    public function account()
-    {
-        return $this->belongsTo(Account::class);
-    }
-    public function notifications()
-    {
-        return $this->hasMany(UserNotification::class);
-    }
-    public function assignedRole()
-    {
-        return $this->belongsTo(Role::class, 'role_id');
-    }
+    public function account() { return $this->belongsTo(Account::class); }
+    public function notifications() { return $this->hasMany(UserNotification::class); }
+    public function assignedRole() { return $this->belongsTo(Role::class, 'role_id'); }
 
-    public function isSuperAdmin(): bool
-    {
-        return $this->role === 'super_admin';
-    }
-    public function isOwner(): bool
-    {
-        return $this->role === 'owner';
-    }
+    public function isSuperAdmin(): bool { return $this->role === 'super_admin'; }
+    public function isOwner(): bool { return $this->role === 'owner'; }
 
-    /** Role permissions + extra permissions given by the customer, limited to active permissions. */
+    /**
+     * What this user may do (only for users that a customer created):
+     *   role permissions + extra permissions - permissions the customer turned off,
+     * limited to active permissions. The super admin and the customer owner never use this: they can do everything.
+     */
     public function effectivePermissions(): array
     {
         if ($this->permissionCache !== null) {
@@ -76,6 +54,8 @@ class User extends Authenticatable
         if ($role && $role->is_active) {
             $slugs = array_merge($slugs, $role->permissions()->pluck('slug')->all());
         }
+
+        $slugs = array_diff($slugs, $this->denied_permissions ?? []);     // turned off
 
         $active = Permission::where('is_active', true)->pluck('slug')->all();
 

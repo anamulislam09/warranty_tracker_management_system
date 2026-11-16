@@ -47,9 +47,15 @@
                             (Invoices)</a>
                         <a class="nav-link {{ $is('admin.payments.*') }}"
                             href="{{ route('admin.payments.index') }}"><i class="bi bi-cash-coin"></i> Payments</a>
+                        <a class="nav-link {{ $is('admin.online-payments.*') }}"
+                            href="{{ route('admin.online-payments.index') }}"><i class="bi bi-credit-card"></i> Online
+                            Payments</a>
                         <a class="nav-link {{ $is('admin.reports.*') }}"
                             href="{{ route('admin.reports.billing') }}"><i class="bi bi-graph-up"></i> Billing
                             Report</a>
+                        <a class="nav-link {{ $is('admin.schedules.*') }}"
+                            href="{{ route('admin.schedules.index') }}"><i class="bi bi-calendar-range"></i> Payment
+                            Schedules</a>
                         <div class="nav-heading">Product setup</div>
                         <a class="nav-link {{ $is('admin.categories.*') }}"
                             href="{{ route('admin.categories.index') }}"><i class="bi bi-tags"></i> Categories</a>
@@ -61,9 +67,13 @@
                                 class="bi bi-person-badge"></i> Roles</a>
                         <a class="nav-link {{ $is('admin.permissions.*') }}"
                             href="{{ route('admin.permissions.index') }}"><i class="bi bi-key"></i> Permissions</a>
+                        <a class="nav-link {{ $is('admin.settings.*') }}" href="{{ route('admin.settings.edit') }}"><i
+                                class="bi bi-gear"></i> Company &amp; Invoice Settings</a>
                     @else
-                        <a class="nav-link {{ $is('dashboard') }}" href="{{ route('dashboard') }}"><i
-                                class="bi bi-house"></i> Dashboard</a>
+                        @if ($u->hasPermission('dashboard.view'))
+                            <a class="nav-link {{ $is('dashboard') }}" href="{{ route('dashboard') }}"><i
+                                    class="bi bi-house"></i> Dashboard</a>
+                        @endif
                         @if ($u->hasPermission('products.view'))
                             <a class="nav-link {{ request()->routeIs('products.index') && !request('status') ? 'active' : '' }}"
                                 href="{{ route('products.index') }}"><i class="bi bi-box-seam"></i> Products &amp;

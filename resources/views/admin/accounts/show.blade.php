@@ -14,7 +14,7 @@
                 @endif
             </p>
         </div>
-        
+
         <div class="d-flex gap-2 flex-wrap">
             <button type="button" class="btn btn-sm btn-warning text-dark" onclick="window.history.back()">
                 <i class="bi bi-arrow-left"></i> Back
@@ -53,7 +53,7 @@
                             </tr>
                             <tr>
                                 <th class="text-muted fw-normal">Plan</th>
-                                <td>{{ $plan->name ?? '-' }} ({{ ucfirst($account->billing_cycle) }})</td>
+                                <td>{{ $plan->name ?? '-' }} ({{ $account->cycleLabel() }})</td>
                             </tr>
                             <tr>
                                 <th class="text-muted fw-normal">Plan valid until</th>

@@ -14,22 +14,19 @@
                 <h3 class="page-title mb-1">{{ $invoice->invoice_no }} <x-status-badge :status="$invoice->display_status" /></h3>
                 <div class="text-muted"><a href="{{ route('admin.accounts.show', $invoice->account_id) }}"
                         class="text-decoration-none">{{ $invoice->account->name }}</a> &middot; {{ $invoice->period_label }}
-                    &middot; {{ $invoice->plan_name }} plan &middot; {{ $invoice->cycle_label }}</div>
-                @if ($advance > 0)
-                    <div class="mt-1"><span class="badge text-bg-info">Customer advance balance: {{ $m($advance) }}</span></div>
-                @endif
+                    &middot; {{ $invoice->plan_name }} plan &middot; {{ $invoice->cycle_label }} schedule</div>
             </div>
             <div class="d-flex flex-wrap gap-2 align-items-start">
-                <a href="{{ route('admin.payments.create', ['invoice_id' => $invoice->id]) }}" class="btn btn-success"><i class="bi bi-cash-coin"></i> Add Payment</a>
-                <a href="{{ route('admin.invoices.edit', $invoice) }}" class="btn btn-primary"><i class="bi bi-pencil"></i> Edit</a>
-                @if ($invoice->status !== 'cancelled')
-                    <form method="POST" action="{{ route('admin.invoices.cancel', $invoice) }}"
-                        data-confirm="Cancel (waive) this bill? The customer will not have to pay it." data-confirm-button="Yes, cancel bill">
-                        @csrf @method('PATCH')
-                        <button class="btn btn-outline-secondary"><i class="bi bi-slash-circle"></i> Cancel Bill</button>
-                    </form>
+                <a href="{{ route('admin.invoices.download', $invoice) }}" class="btn btn-outline-dark"><i class="bi bi-file-earmark-pdf"></i> Download PDF</a>
+                @if (in_array($invoice->status, ['unpaid', 'partial']))
+                    <a href="{{ route('admin.payments.create', ['invoice_id' => $invoice->id]) }}" class="btn btn-success"><i class="bi bi-cash-coin"></i> Add Payment</a>
                 @endif
-                @unless ($invoice->allocations->count())
+                @if ($invoice->payments->count())
+                    <button type="button" class="btn btn-outline-secondary" disabled title="A payment was made, so this bill cannot be edited any more"><i class="bi bi-lock"></i> Edit locked</button>
+                @else
+                    <a href="{{ route('admin.invoices.edit', $invoice) }}" class="btn btn-primary"><i class="bi bi-pencil"></i> Edit</a>
+                @endif
+                @unless ($invoice->payments->count())
                     <form method="POST" action="{{ route('admin.invoices.destroy', $invoice) }}" data-confirm="Delete this bill?">
                         @csrf @method('DELETE')
                         <button class="btn btn-outline-danger"><i class="bi bi-trash"></i> Delete</button>
@@ -46,7 +43,8 @@
                     <h6 class="fw-semibold mb-3"><i class="bi bi-receipt text-primary"></i> Bill details</h6>
                     <table class="table table-sm mb-0">
                         <tbody>
-                            <tr><th class="text-muted fw-normal">Period</th><td>{{ $invoice->period_label }} ({{ $invoice->months }} {{ \Illuminate\Support\Str::plural('month', $invoice->months) }})</td></tr>
+                            <tr><th class="text-muted fw-normal">Payment schedule</th><td>{{ $invoice->cycle_label }} ({{ $invoice->months }} {{ \Illuminate\Support\Str::plural('month', $invoice->months) }})</td></tr>
+                            <tr><th class="text-muted fw-normal">Period</th><td>{{ $invoice->billing_month->format($fmt) }} - {{ optional($invoice->period_end)->format($fmt) }}</td></tr>
                             <tr><th class="text-muted fw-normal">Plan</th><td>{{ $invoice->plan_name }}</td></tr>
                             <tr><th class="text-muted fw-normal">Price before discount</th><td>{{ $m($invoice->base_amount) }}</td></tr>
                             <tr><th class="text-muted fw-normal">Discount</th><td>@if ((float) $invoice->discount_amount > 0)<span class="text-success">- {{ $m($invoice->discount_amount) }} ({{ (float) $invoice->discount_percent }}%)</span>@else - @endif</td></tr>
@@ -67,34 +65,37 @@
         <div class="col-12 col-lg-7">
             <div class="card h-100">
                 <div class="card-body">
-                    <h6 class="fw-semibold mb-3"><i class="bi bi-cash-coin text-success"></i> Payments applied to this bill ({{ $invoice->allocations->count() }})</h6>
+                    <h6 class="fw-semibold mb-3"><i class="bi bi-cash-coin text-success"></i> Payments of this bill ({{ $invoice->payments->count() }})</h6>
                     <div class="table-responsive">
                         <table class="table table-sm align-middle mb-0">
-                            <thead><tr><th>Paid on</th><th class="text-end">Applied</th><th class="text-end">Payment</th><th>Method</th><th>Reference</th><th class="text-end"></th></tr></thead>
+                            <thead><tr><th>Paid on</th><th class="text-end">Amount</th><th>Method</th><th>Reference</th><th>Received by</th><th class="text-end"></th></tr></thead>
                             <tbody>
-                                @forelse ($invoice->allocations as $a)
-                                    @php $p = $a->payment; @endphp
+                                @forelse ($invoice->payments as $p)
                                     <tr>
                                         <td>{{ $p->paid_on->format($fmt) }}</td>
-                                        <td class="text-end fw-semibold">{{ $m($a->amount) }}</td>
-                                        <td class="text-end text-muted">{{ $m($p->amount) }}</td>
+                                        <td class="text-end fw-semibold">{{ $m($p->amount) }}</td>
                                         <td>{{ config('billing.methods')[$p->method] ?? $p->method }}</td>
                                         <td>{{ $p->reference ?: '-' }}</td>
+                                        <td>{{ optional($p->receiver)->name ?: 'online' }}</td>
                                         <td class="text-end text-nowrap">
+                                            @if ($p->isOnline())
+                                                <span class="badge text-bg-light border text-muted" title="Online payments cannot be edited or deleted"><i class="bi bi-lock"></i> Online</span>
+                                            @else
                                             <a href="{{ route('admin.payments.edit', $p) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
                                             <form method="POST" action="{{ route('admin.payments.destroy', $p) }}" class="d-inline" data-confirm="Delete this payment?">
                                                 @csrf @method('DELETE')
                                                 <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
                                             </form>
+                                            @endif
                                         </td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="6" class="text-center text-muted py-3">No payment applied yet.</td></tr>
+                                    <tr><td colspan="6" class="text-center text-muted py-3">No payment received yet.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>
                     </div>
-                    <p class="small text-muted mt-2 mb-0">A payment is applied to the oldest unpaid bill first. The "Payment" column is the full amount received.</p>
+                    <p class="small text-muted mt-2 mb-0">A bill can have many payments, but together they can never be more than the amount of the bill.</p>
                 </div>
             </div>
         </div>

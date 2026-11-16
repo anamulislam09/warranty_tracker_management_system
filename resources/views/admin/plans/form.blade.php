@@ -10,7 +10,8 @@
                 <h3 class="page-title">{{ $plan->exists ? 'Edit Plan' : 'Add Subscription Plan' }}</h3>
 
 
-                <button type="button" class="btn btn-warning align-self-start align-self-sm-auto" onclick="window.history.back()">
+                <button type="button" class="btn btn-warning align-self-start align-self-sm-auto"
+                    onclick="window.history.back()">
                     <i class="bi bi-arrow-left"></i> Back
                 </button>
             </div>
@@ -24,23 +25,25 @@
                         <div class="row g-3">
                             <div class="col-12 col-md-6">
                                 <label class="form-label">Plan Name *</label>
-                                <input name="name" placeholder="Enter Plan Name" class="form-control" value="{{ $v('name') }}" required>
+                                <input name="name" placeholder="Enter Plan Name" class="form-control"
+                                    value="{{ $v('name') }}" required>
                             </div>
 
                             <div class="col-12 col-md-6">
                                 <label class="form-label">Description</label>
-                                <input name="description" placeholder="Enter Description" class="form-control" value="{{ $v('description') }}">
+                                <input name="description" placeholder="Enter Description" class="form-control"
+                                    value="{{ $v('description') }}">
                             </div>
                             <div class="col-6">
                                 <label class="form-label">Monthly Price (BDT) *</label>
                                 <input type="number" step="0.01" min="0" name="monthly_price"
                                     class="form-control" value="{{ $v('monthly_price') ?? 0 }}" required>
                             </div>
-                            <div class="col-6">
+                            {{-- <div class="col-6">
                                 <label class="form-label">Annual Price (BDT) *</label>
                                 <input type="number" step="0.01" min="0" name="annual_price" class="form-control"
                                     value="{{ $v('annual_price') ?? 0 }}" required>
-                            </div>
+                            </div> --}}
                             <div class="col-12 col-md-4">
                                 <label class="form-label">Maximum Products * <small class="text-muted">(0 =
                                         unlimited)</small></label>

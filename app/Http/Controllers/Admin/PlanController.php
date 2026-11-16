@@ -12,7 +12,7 @@ class PlanController extends Controller
     {
         return [
             'name' => 'required|string|max:100', 'description' => 'nullable|string|max:255',
-            'monthly_price' => 'required|numeric|min:0', 'annual_price' => 'required|numeric|min:0',
+            'monthly_price' => 'required|numeric|min:0',
             'max_products' => 'required|integer|min:0', 'storage_limit_mb' => 'required|integer|min:1',
             'max_users' => 'required|integer|min:1',
         ];

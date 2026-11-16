@@ -4,9 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/** Money received for ONE bill. A bill can have many payments, but never more than its amount. */
 class Payment extends Model
 {
-    // invoice_id = the bill the admin / customer wanted to pay (optional). Empty = "oldest bill first".
     protected $fillable = ['invoice_id', 'account_id', 'amount', 'paid_on', 'method', 'reference', 'note', 'received_by'];
 
     protected function casts(): array
@@ -14,18 +14,13 @@ class Payment extends Model
         return ['paid_on' => 'date', 'amount' => 'decimal:2'];
     }
 
+    /** Paid through the online gateway. The gateway's money can not be edited or deleted by hand. */
+    public function isOnline(): bool
+    {
+        return $this->method === 'sslcommerz';
+    }
+
     public function invoice() { return $this->belongsTo(Invoice::class); }
     public function account() { return $this->belongsTo(Account::class); }
     public function receiver() { return $this->belongsTo(User::class, 'received_by'); }
-    public function allocations() { return $this->hasMany(PaymentAllocation::class)->orderBy('id'); }
-
-    /** Part of this payment that is not used for any bill yet = advance. */
-    public function getUnallocatedAttribute(): float
-    {
-        $used = $this->relationLoaded('allocations')
-            ? $this->allocations->sum('amount')
-            : $this->allocations()->sum('amount');
-
-        return max(0, round((float) $this->amount - (float) $used, 2));
-    }
 }

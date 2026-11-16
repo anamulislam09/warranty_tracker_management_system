@@ -20,7 +20,7 @@ class EnsureBillingClear
         if (! $user || $user->isSuperAdmin() || ! $user->account) {
             return $next($request);
         }
-        if ($request->routeIs('billing.*', 'logout')) {
+        if ($request->routeIs('billing.*', 'Payment.create_payment', 'logout', 'api.billing.*', 'api.auth.*', 'api.me', 'api.devices.*', 'api.meta.*')) {
             return $next($request);
         }
 
@@ -35,7 +35,7 @@ class EnsureBillingClear
                    . ($suspendOn ? " before {$suspendOn} to avoid suspension." : '.');
 
         if ($request->is('api/*') || $request->expectsJson()) {
-            return response()->json(['message' => $message], 402);
+            return response()->json(['success' => false, 'code' => 'payment_overdue', 'message' => $message], 402);
         }
 
         if ($user->isOwner()) {

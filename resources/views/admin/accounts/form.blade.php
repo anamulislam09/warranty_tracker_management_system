@@ -57,17 +57,37 @@
                         </select>
                     </div>
                     <div class="col-lg-6 col-md-6 col-sm-12">
-                        <label class="form-label">Billing Cycle *</label>
-                        <select name="billing_cycle" class="form-select">
-                            @foreach (config('billing.cycles') as $key => $cycle)
-                                <option value="{{ $key }}" @selected(old('billing_cycle', $account->billing_cycle ?: 'monthly') === $key)>
-                                    {{ $cycle['label'] }}@if ($cycle['discount'] > 0)
-                                        - {{ $cycle['discount'] + 0 }}% discount
-                                    @endif
+                        <label class="form-label">Payment Schedule *</label>
+                        <select name="payment_schedule_id" class="form-select" required>
+                            <option value="">Select a payment schedule</option>
+                            @foreach ($schedules as $s)
+                                <option value="{{ $s->id }}" @selected(old('payment_schedule_id', $account->payment_schedule_id) == $s->id)>{{ $s->label }}
                                 </option>
                             @endforeach
                         </select>
                     </div>
+
+                    @unless ($account->billing_starts_on)
+                        @php $choice = (string) old('bill_current_month', is_null($account->bill_current_month) ? '' : (int) $account->bill_current_month); @endphp
+                        <div class="col-lg-6 col-md-6 col-sm-12">
+                            <label class="form-label">Bill the current month too? *</label>
+                            <div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="bill_current_month" id="bcm_yes"
+                                        value="1" @checked($choice === '1') required>
+                                    <label class="form-check-label" for="bcm_yes">Yes</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="bill_current_month" id="bcm_no"
+                                        value="0" @checked($choice === '0') required>
+                                    <label class="form-check-label" for="bcm_no">No</label>
+                                </div>
+                            </div>
+                            <div class="form-text">Yes: billing starts from the 1st of this month (this month is billed too).
+                                No: this month is free, billing starts from the 1st of next month.</div>
+                        </div>
+                    @endunless
+
                     {{-- <div class="col-6 col-md-3"><label class="form-label">Plan valid until</label>
                         <input type="date" name="plan_ends_at" class="form-control"
                             value="{{ old('plan_ends_at', optional($account->plan_ends_at)->toDateString()) }}">

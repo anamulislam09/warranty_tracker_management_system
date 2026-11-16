@@ -9,7 +9,7 @@ class NotificationController extends Controller
 {
     public function index(Request $request)
     {
-        $notifications = UserNotification::where('user_id', $request->user()->id)->latest()->paginate(15);
+        $notifications = UserNotification::where('user_id', $request->user()->id)->latest()->paginate(10)->withQueryString();
         return view('notifications.index', compact('notifications'));
     }
 

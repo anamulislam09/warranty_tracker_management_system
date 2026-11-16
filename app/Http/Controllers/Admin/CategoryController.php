@@ -44,7 +44,7 @@ class CategoryController extends Controller
     public function index()
     {
         return view('admin.categories.index', [
-            'categories' => Category::withCount(['subcategories', 'products'])->orderBy('sort_order')->orderBy('name')->get(),
+            'categories' => Category::withCount(['subcategories', 'products'])->orderBy('sort_order')->orderBy('name')->paginate(10)->withQueryString(),
         ]);
     }
 

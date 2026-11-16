@@ -31,7 +31,7 @@ class SubcategoryController extends Controller
     {
         $subs = Subcategory::with('category')->withCount('products')
             ->when($request->category_id, fn ($q, $id) => $q->where('category_id', $id))
-            ->orderBy('category_id')->orderBy('sort_order')->orderBy('name')->get();
+            ->orderBy('category_id')->orderBy('sort_order')->orderBy('name')->paginate(15)->withQueryString();
 
         return view('admin.subcategories.index', ['subs' => $subs, 'categories' => Category::orderBy('name')->get()]);
     }

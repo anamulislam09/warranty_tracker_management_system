@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Invoice extends Model
 {
     protected $fillable = [
-        'account_id', 'plan_id', 'plan_name', 'invoice_no', 'billing_month', 'period_end', 'cycle', 'months',
+        'account_id', 'plan_id', 'plan_name', 'invoice_no', 'billing_month', 'period_end', 'cycle', 'payment_schedule_id', 'schedule_name', 'months',
         'base_amount', 'discount_percent', 'discount_amount', 'amount', 'paid_amount',
         'due_date', 'status', 'note', 'created_by',
     ];
@@ -24,7 +24,8 @@ class Invoice extends Model
     public function account() { return $this->belongsTo(Account::class); }
     public function plan() { return $this->belongsTo(Plan::class); }
     public function creator() { return $this->belongsTo(User::class, 'created_by'); }
-    public function allocations() { return $this->hasMany(PaymentAllocation::class)->orderBy('id'); }
+    public function schedule() { return $this->belongsTo(PaymentSchedule::class, 'payment_schedule_id'); }
+    public function payments() { return $this->hasMany(Payment::class)->orderBy('paid_on')->orderBy('id'); }
 
     public function getBalanceAttribute(): float
     {
@@ -45,9 +46,10 @@ class Invoice extends Model
         return $this->period_label;
     }
 
+    /** Name of the payment schedule this bill was made for, e.g. "Yearly" */
     public function getCycleLabelAttribute(): string
     {
-        return config("billing.cycles.{$this->cycle}.label", ucfirst((string) $this->cycle));
+        return $this->schedule_name ?: ucfirst((string) $this->cycle);
     }
 
     public function getIsOverdueAttribute(): bool
@@ -83,5 +85,20 @@ class Invoice extends Model
     public static function money($value): string
     {
         return config('billing.symbol') . number_format((float) $value, 2);
+    }
+
+    /** For the PDF: the PDF fonts cannot print the taka sign. */
+    public static function moneyPlain($value): string
+    {
+        return 'BDT ' . number_format((float) $value, 2);
+    }
+
+    /** Text for the status stamp / label: Paid, Partially paid, Unpaid, Overdue, Cancelled */
+    public function getStatusTextAttribute(): string
+    {
+        return match ($this->display_status) {
+            'paid' => 'Paid', 'partial' => 'Partially paid', 'unpaid' => 'Unpaid',
+            'overdue' => 'Overdue', 'cancelled' => 'Cancelled', default => ucfirst($this->status),
+        };
     }
 }

@@ -8,7 +8,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>
             <h3 class="page-title mb-1">Payments</h3>
-            <p class="text-muted mb-0">Every payment received: which customer, how much, which date, and which bills it paid.</p>
+            <p class="text-muted mb-0">Every payment received: which customer, which bill, how much, and on which date.</p>
         </div>
         <a href="{{ route('admin.payments.create') }}" class="btn btn-success"><i class="bi bi-plus-lg"></i> Receive Payment</a>
     </div>
@@ -54,31 +54,29 @@
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead>
-                    <tr><th>Paid On</th><th>Customer</th><th class="text-end">Amount</th><th>Applied to</th><th>Method</th><th>Reference</th><th>Received by</th><th class="text-end">Actions</th></tr>
+                    <tr><th>Paid On</th><th>Customer</th><th>Bill</th><th class="text-end">Amount</th><th>Method</th><th>Reference</th><th>Received by</th><th class="text-end">Actions</th></tr>
                 </thead>
                 <tbody>
                     @forelse ($payments as $p)
                         <tr>
                             <td>{{ $p->paid_on->format($fmt) }}</td>
                             <td>{{ $p->account->name }}</td>
+                            <td><a href="{{ route('admin.invoices.show', $p->invoice_id) }}" class="text-decoration-none">{{ $p->invoice->period_label }}</a>
+                                <br><small class="text-muted">{{ $p->invoice->cycle_label }}</small></td>
                             <td class="text-end fw-semibold">{{ $m($p->amount) }}</td>
-                            <td class="small">
-                                @foreach ($p->allocations as $a)
-                                    <div><a href="{{ route('admin.invoices.show', $a->invoice_id) }}" class="text-decoration-none">{{ $a->invoice->period_label }}</a> <span class="text-muted">{{ $m($a->amount) }}</span></div>
-                                @endforeach
-                                @if ($p->unallocated > 0)
-                                    <div><span class="badge text-bg-info">Advance {{ $m($p->unallocated) }}</span></div>
-                                @endif
-                            </td>
                             <td>{{ config('billing.methods')[$p->method] ?? $p->method }}</td>
                             <td>{{ $p->reference ?: '-' }}</td>
                             <td>{{ optional($p->receiver)->name ?: 'online' }}</td>
                             <td class="text-end text-nowrap">
+                                @if ($p->isOnline())
+                                    <span class="badge text-bg-light border text-muted" title="Online payments cannot be edited or deleted"><i class="bi bi-lock"></i> Online</span>
+                                @else
                                 <a href="{{ route('admin.payments.edit', $p) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
                                 <form method="POST" action="{{ route('admin.payments.destroy', $p) }}" class="d-inline" data-confirm="Delete this payment?">
                                     @csrf @method('DELETE')
                                     <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
                                 </form>
+                                @endif
                             </td>
                         </tr>
                     @empty

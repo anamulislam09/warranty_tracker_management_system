@@ -5,31 +5,35 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\Invoice;
+use App\Models\PaymentSchedule;
 use App\Models\Plan;
 use App\Services\BillingService;
+use App\Services\InvoicePdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Validation\Rule;
 
 class InvoiceController extends Controller
 {
     public function __construct(private BillingService $billing) {}
 
-    private function formData(Invoice $invoice): array
+    /** What the form shows for every customer: his schedule, the next period, the amount, and whether it may be created now. */
+    private function drafts()
     {
-        $accounts = Account::with('plan')->orderBy('name')->get();
+        return Account::with(['plan', 'schedule'])->orderBy('name')->get()->mapWithKeys(function ($account) {
+            $d = $this->billing->nextInvoiceDraft($account, true);        // by hand: the first bill of a new customer is allowed at any time
 
-        return [
-            'invoice'       => $invoice,
-            'accounts'      => $accounts,
-            'plans'         => Plan::orderBy('monthly_price')->get(),
-            'months'        => BillingService::monthOptions(),
-            'cycles'        => config('billing.cycles'),
-            'planPrices'    => Plan::pluck('monthly_price', 'id'),
-            'accountPlans'  => $accounts->pluck('plan_id', 'id'),
-            'accountCycles' => $accounts->pluck('billing_cycle', 'id'),
-            'dueDay'        => (int) config('billing.due_day'),
-        ];
+            if (! isset($d['quote'])) {
+                return [$account->id => ['can' => false, 'message' => $d['message']]];
+            }
+            return [$account->id => [
+                'can' => $d['can'], 'message' => $d['message'], 'first' => $d['first'],
+                'free_until' => $d['free_until'] ? $d['free_until']->format(BillingService::dateFormat()) : null,
+                'schedule' => $d['schedule']->name . ' (every ' . $d['quote']['months'] . ' ' . ($d['quote']['months'] == 1 ? 'month' : 'months') . ')',
+                'discount' => (float) $d['quote']['discount_percent'],
+                'plan' => $d['plan']->name, 'period' => $d['period_label'],
+                'amount' => $d['quote']['amount'], 'due' => $d['due']->toDateString(),
+            ]];
+        });
     }
 
     public function index(Request $request)
@@ -40,6 +44,8 @@ class InvoiceController extends Controller
             ->when($request->account_id, fn ($q, $id) => $q->where('account_id', $id))
             ->when($month, fn ($q) => $q->whereDate('billing_month', $month->toDateString()))
             ->when($request->status, fn ($q, $s) => $s === 'overdue' ? $q->overdue() : $q->where('status', $s))
+            ->when($request->from, fn ($q, $d) => $q->whereDate('created_at', '>=', $d))      // bills issued from (dashboard link)
+            ->when($request->to, fn ($q, $d) => $q->whereDate('created_at', '<=', $d))        // bills issued until
             ->when($request->q, fn ($q, $t) => $q->where(fn ($q) => $q
                 ->where('invoice_no', 'like', "%{$t}%")
                 ->orWhereHas('account', fn ($a) => $a->where('name', 'like', "%{$t}%")->orWhere('email', 'like', "%{$t}%"))));
@@ -59,60 +65,72 @@ class InvoiceController extends Controller
 
     public function create(Request $request)
     {
-        return view('admin.invoices.form', $this->formData(new Invoice(['account_id' => $request->account_id])));
+        return view('admin.invoices.form', [
+            'invoice'  => new Invoice(['account_id' => $request->account_id]),
+            'accounts' => Account::orderBy('name')->get(['id', 'name']),
+            'drafts'   => $this->drafts(),
+            'plans'    => Plan::orderBy('monthly_price')->get(),
+            'planPrices' => Plan::pluck('monthly_price', 'id'),
+        ]);
     }
 
+    /** The period, plan and schedule are NOT chosen here: they always come from the customer's own payment schedule. */
     public function store(Request $request)
     {
         $data = $request->validate([
-            'account_id'    => 'required|exists:accounts,id',
-            'billing_month' => ['required', 'regex:/^\d{4}-\d{2}$/'],
-            'cycle'         => ['required', Rule::in(array_keys(config('billing.cycles')))],
-            'plan_id'       => 'required|exists:plans,id',
-            'amount'        => 'required|numeric|min:0.01|max:99999999',
-            'due_date'      => 'required|date',
-            'note'          => 'nullable|string|max:500',
+            'account_id' => 'required|exists:accounts,id',
+            'amount'     => 'nullable|numeric|min:0.01|max:99999999',
+            'due_date'   => 'nullable|date',
+            'note'       => 'nullable|string|max:500',
         ]);
 
-        $start   = BillingService::monthFromInput($data['billing_month']);
-        $months  = (int) config("billing.cycles.{$data['cycle']}.months");
-        $end     = $start->copy()->addMonthsNoOverflow($months)->subDay();
-        $account = Account::findOrFail($data['account_id']);
+        $account = Account::with(['plan', 'schedule'])->findOrFail($data['account_id']);
+        $draft   = $this->billing->nextInvoiceDraft($account, true);
 
-        // a period must not overlap another bill of the same customer
-        $overlap = Invoice::where('account_id', $account->id)
-            ->where('billing_month', '<=', $end->toDateString())
-            ->where('period_end', '>=', $start->toDateString())->exists();
-        if ($overlap) {
-            return back()->withInput()->with('error', 'This customer already has a bill that covers some of these months. Edit that bill or choose another period.');
+        if (! $draft['can']) {
+            return back()->withInput()->with('error', $draft['message']);
         }
 
         $invoice = $this->billing->createInvoice(
-            $account, $start, Plan::find($data['plan_id']), $data['cycle'], (float) $data['amount'],
-            Carbon::parse($data['due_date']), $data['note'] ?? null, $request->user()->id
+            $account, $draft, isset($data['amount']) ? (float) $data['amount'] : null,
+            ! empty($data['due_date']) ? Carbon::parse($data['due_date']) : null, $data['note'] ?? null, $request->user()->id
         );
-        $this->billing->reallocate($account);          // an advance balance pays the new bill automatically
         $this->billing->announce($invoice);
 
-        return redirect()->route('admin.invoices.show', $invoice)->with('success', 'Bill created.');
+        return redirect()->route('admin.invoices.show', $invoice)->with('success', 'Bill created and sent to the customer.');
     }
 
     public function show(Invoice $invoice)
     {
-        $invoice->load('account', 'plan', 'allocations.payment.receiver', 'creator');
-        return view('admin.invoices.show', [
-            'invoice' => $invoice,
-            'advance' => $invoice->account->advanceBalance(),
-        ]);
+        $invoice->load('account', 'plan', 'schedule', 'payments.receiver', 'creator');
+        return view('admin.invoices.show', compact('invoice'));
+    }
+
+    public function download(Invoice $invoice, InvoicePdf $pdf)
+    {
+        return $pdf->download($invoice);
     }
 
     public function edit(Invoice $invoice)
     {
-        return view('admin.invoices.form', $this->formData($invoice->load('account')));
+        if ($invoice->payments()->exists()) {
+            return redirect()->route('admin.invoices.show', $invoice)->with('error', 'A payment was already made for this bill, so it cannot be edited any more.');
+        }
+
+        return view('admin.invoices.form', [
+            'invoice' => $invoice->load('account'),
+            'accounts' => collect(), 'drafts' => collect(),
+            'plans' => Plan::orderBy('monthly_price')->get(),
+            'planPrices' => Plan::pluck('monthly_price', 'id'),
+        ]);
     }
 
     public function update(Request $request, Invoice $invoice)
     {
+        if ($invoice->payments()->exists()) {
+            return redirect()->route('admin.invoices.show', $invoice)->with('error', 'A payment was already made for this bill, so it cannot be edited any more.');
+        }
+
         $data = $request->validate([
             'plan_id'  => 'required|exists:plans,id',
             'amount'   => 'required|numeric|min:0.01|max:99999999',
@@ -120,9 +138,10 @@ class InvoiceController extends Controller
             'note'     => 'nullable|string|max:500',
         ]);
 
-        $plan  = Plan::find($data['plan_id']);
-        $quote = BillingService::quote($plan, $invoice->cycle);
-        $disc  = max(0, round($quote['base'] - (float) $data['amount'], 2));
+        $plan     = Plan::find($data['plan_id']);
+        $schedule = $invoice->schedule ?: new PaymentSchedule(['months' => $invoice->months, 'discount_percent' => $invoice->discount_percent]);
+        $quote    = BillingService::quote($plan, $schedule);
+        $disc     = max(0, round($quote['base'] - (float) $data['amount'], 2));
 
         $invoice->update([
             'plan_id' => $plan->id, 'plan_name' => $plan->name, 'amount' => $data['amount'],
@@ -130,27 +149,20 @@ class InvoiceController extends Controller
             'discount_percent' => $quote['base'] > 0 ? round($disc / $quote['base'] * 100, 2) : 0,
             'due_date' => $data['due_date'], 'note' => $data['note'] ?? null,
         ]);
-        $this->billing->refresh($invoice);          // payments are re-applied, the status may change
+        $this->billing->refresh($invoice);          // the status may change (for example paid -> partial)
 
         return redirect()->route('admin.invoices.show', $invoice)->with('success', 'Bill updated.');
     }
 
-    public function cancel(Invoice $invoice)
-    {
-        $invoice->update(['status' => 'cancelled']);
-        $this->billing->refresh($invoice);          // money paid for it moves to the next bills / advance
-
-        return back()->with('success', 'Bill cancelled (waived).');
-    }
 
     public function destroy(Invoice $invoice)
     {
-        if ($invoice->allocations()->exists()) {
-            return back()->with('error', 'Payments are applied to this bill. Delete those payments first, or cancel the bill instead.');
+        if ($invoice->payments()->exists()) {
+            return back()->with('error', 'This bill has payments, so it cannot be deleted. Delete its payments first.');
         }
         $account = $invoice->account;
         $invoice->delete();
-        $this->billing->reallocate($account);
+        $this->billing->reactivateIfCleared($account);
 
         return redirect()->route('admin.invoices.index')->with('success', 'Bill deleted.');
     }

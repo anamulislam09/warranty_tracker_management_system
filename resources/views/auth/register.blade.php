@@ -47,17 +47,14 @@
             </select>
         </div>
         <div class="mb-3">
-            <label class="form-label">Billing Cycle <span class="text-danger">*</span></label>  
-            <select name="billing_cycle" class="form-select">
-                @foreach (config('billing.cycles') as $key => $cycle)
-                    <option value="{{ $key }}" @selected(old('billing_cycle', 'monthly') === $key)>
-                        {{ $cycle['label'] }}@if ($cycle['discount'] > 0)
-                            - {{ $cycle['discount'] + 0 }}% discount
-                        @endif
-                    </option>
+            <label class="form-label">Payment Schedule <span class="text-danger">*</span></label>
+            <select name="payment_schedule_id" class="form-select" required>
+                <option value="">Select a payment schedule</option>
+                @foreach ($schedules as $s)
+                    <option value="{{ $s->id }}" @selected(old('payment_schedule_id') == $s->id)>{{ $s->label }}</option>
                 @endforeach
             </select>
-            <div class="form-text">Monthly and quarterly: normal price. Pay 6 or 12 months at once and get a discount.</div>
+            <div class="form-text">How often you pay. Paying for longer periods at once can give you a discount.</div>
         </div>
         <div class="mb-3">
             <label class="form-label">Password <span class="text-danger">*</span></label>
