@@ -39,8 +39,8 @@ class DatabaseSeeder extends Seeder
 
         // ---- starter roles (super admin can edit / add more) ----
         $roles = [
-            'Viewer'  => ['Can only view products and warranties.',            ['products.view']],
-            'Editor'  => ['Can add and edit products and upload documents.',   ['products.view', 'products.create', 'products.edit', 'documents.manage']],
+            // 'Viewer'  => ['Can only view products and warranties.',            ['products.view']],
+            'Staff'  => ['Can add and edit products and upload documents.',   ['products.view', 'products.create', 'products.edit', 'documents.manage']],
             'Manager' => ['Full product, document and file access.',           ['products.view', 'products.create', 'products.edit', 'products.delete', 'documents.manage']],
         ];
         foreach ($roles as $name => [$desc, $slugs]) {
@@ -66,7 +66,7 @@ class DatabaseSeeder extends Seeder
         // ---- super admin (change this password after first login!) ----
         User::updateOrCreate(['email' => 'admin@gmail.com'], [
             'name' => 'Super Admin',
-            'password' => 'Admin12345',
+            'password' => 'admin12345',
             'role' => 'super_admin',
             'status' => 'active',
             'email_verified_at' => now(),

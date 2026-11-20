@@ -35,7 +35,7 @@ class EnsureBillingClear
                    . ($suspendOn ? " before {$suspendOn} to avoid suspension." : '.');
 
         if ($request->is('api/*') || $request->expectsJson()) {
-            return response()->json(['success' => false, 'code' => 'payment_overdue', 'message' => $message], 402);
+            return response()->json(['success' => false, 'code' => 'payment_overdue', 'message' => $message], 422);
         }
 
         if ($user->isOwner()) {

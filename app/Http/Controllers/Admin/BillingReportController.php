@@ -13,7 +13,7 @@ use Illuminate\Pagination\Paginator;
 
 class BillingReportController extends Controller
 {
-    private function data(Request $request): array
+    public function data(Request $request): array
     {
         $to   = BillingService::monthFromInput($request->to) ?? today()->startOfMonth();
         $from = BillingService::monthFromInput($request->from) ?? $to->copy()->subMonthsNoOverflow(11);

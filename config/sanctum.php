@@ -16,6 +16,9 @@ return [
     // null = never expires. Expired tokens are deleted every day by `sanctum:prune-expired`.
     'expiration' => env('SANCTUM_TOKEN_EXPIRATION_MINUTES', 60 * 24 * 90),
 
+    // The super admin can do everything, so his phone stays logged in for a shorter time (default 7 days).
+    'admin_expiration' => env('SANCTUM_ADMIN_TOKEN_EXPIRATION_MINUTES', 60 * 24 * 7),
+
     'token_prefix' => env('SANCTUM_TOKEN_PREFIX', ''),
 
     'middleware' => [

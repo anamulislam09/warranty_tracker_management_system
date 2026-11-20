@@ -29,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         // Everything under /api answers in JSON, in ONE format, whatever header the app sends:
         //   { "success": false, "code": "...", "message": "...", "errors": { field: [..] } }
+        // and with ONE failure code: HTTP 422 (success is always HTTP 200). The app reads "success" and "code".
         $exceptions->shouldRenderJsonWhen(fn (Request $request, Throwable $e) => $request->is('api/*') || $request->expectsJson());
 
         $exceptions->render(function (ValidationException $e, Request $request) {
@@ -43,11 +44,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(function (AuthenticationException $e, Request $request) {
             if ($request->is('api/*')) {
-                return response()->json(['success' => false, 'code' => 'unauthenticated', 'message' => 'Please login again.'], 401);
+                return response()->json(['success' => false, 'code' => 'unauthenticated', 'message' => 'Your login is not valid or has expired. Please login again.'], 422);
             }
         });
 
-        // 403 (permission), 404 (not found, also a wrong id), 405, 429 (too many requests) ...
+        // no permission, not found (also a wrong id), wrong method, too many requests ... : the real kind is in "code", the http code is 422
         $exceptions->render(function (HttpExceptionInterface $e, Request $request) {
             if (! $request->is('api/*')) return;
 
@@ -59,7 +60,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             $message = in_array($status, [404, 405], true) ? $text[$status] : ($e->getMessage() ?: ($text[$status] ?? 'Request failed.'));
 
-            return response()->json(['success' => false, 'code' => $codes[$status] ?? 'http_error', 'message' => $message], $status, $e->getHeaders());
+            return response()->json(['success' => false, 'code' => $codes[$status] ?? 'http_error', 'message' => $message], 422, $e->getHeaders());
         });
 
         $exceptions->render(function (Throwable $e, Request $request) {
@@ -67,8 +68,8 @@ return Application::configure(basePath: dirname(__DIR__))
                 report($e);
                 return response()->json([
                     'success' => false, 'code' => 'server_error',
-                    'message' => config('app.debug') ? $e->getMessage() : 'Server error. Please try again later.',
-                ], 500);
+                    'message' => config('app.debug') ? $e->getMessage() : 'Something went wrong on the server. Please try again later.',
+                ], 422);
             }
         });
     })->create();
